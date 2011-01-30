@@ -25,11 +25,11 @@ def decode_unicode_references(data):
 class iTunesExporter(object):
     def __init__(self, database_location, templates_location, library_location, rebuild_library=False):
         self.database_location = absolute_path(database_location)
-        self.template_lookup = TemplateLookup(directories=[templates_location])
+        self.template_lookup = TemplateLookup(directories=[templates_location], output_encoding='utf-8')
 
         if rebuild_library:
             print "loading itunes:     %s" % (absolute_path(library_location),)
-            parser = itunes.XMLLibraryParser(absolute_path(library_location))
+            parser = itunes.RBLibraryParser(absolute_path(library_location))
             library = itunes.Library(parser.dictionary)
 
             print "building sqlite3:   %s" % (self.database_location)
@@ -45,8 +45,13 @@ class iTunesExporter(object):
         return connection.cursor()
 
     def _create_schema(self, cursor):
-        cursor.execute('''DROP TABLE songs''')
-        try: cursor.execute('''CREATE TABLE songs (id INTEGER PRIMARY KEY, name TEXT, artist TEXT, album TEXT, track_number INTEGER, year INTEGER, location TEXT)''')
+        try: 
+            cursor.execute('''DROP TABLE songs''')
+        except sqlite3.OperationalError, e: 
+            print e   # db probably doesn't exist yet - no biggie..
+
+        try:
+            cursor.execute('''CREATE TABLE songs (id INTEGER PRIMARY KEY, name TEXT, artist TEXT, album TEXT, track_number INTEGER, year INTEGER, location TEXT)''')
         except sqlite3.OperationalError, e: 
             print e   # don't go any further here; db exists already
             return
@@ -86,7 +91,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
     rebuild_library = not options.skip_rebuild_library
 
-    itunes_exporter = iTunesExporter(library_location='~/Music/iTunes/iTunes Music Library.xml', 
+    itunes_exporter = iTunesExporter(library_location='~/.local/share/rhythmbox/rhythmdb.xml', 
                                      database_location='./library.sq3',
                                      templates_location=os.path.dirname(os.path.abspath(__file__)),
                                      rebuild_library=rebuild_library)
